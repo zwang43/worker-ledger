@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "active": "expense-v4b",
+  "models": [
+    {
+      "id": "expense-v4b",
+      "name": "记账微调 Qwen3.5-4B (4bit)",
+      "endpoint": "http://127.0.0.1:8000/v1",
+      "modelId": "Qwen3.5-4B-expense-MLX-4bit",
+      "think": true,
+      "promptProfile": "finetune-compressed"
+    },
+    {
+      "id": "generic-example",
+      "name": "通用模型示例（未微调，需自行填 modelId）",
+      "endpoint": "http://127.0.0.1:8000/v1",
+      "modelId": "",
+      "think": false,
+      "promptProfile": "generic-full"
+    }
+  ]
+}

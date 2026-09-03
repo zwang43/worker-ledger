@@ -1,0 +1,705 @@
+class AutoMonthlyReportGenerator {
+  constructor() {
+    this.storageManager = new StorageManager();
+    this.documentManager = new DocumentManager();
+    this.isRunning = false;
+    this.lastGenerated = null;
+    
+    // 配置
+    this.config = {
+      // 生成时间：每月1日上午9点
+      generateTime: '09:00',
+      // 生成日期：每月1日
+      generateDay: 1,
+      // 文稿标题模板
+      titleTemplate: '月度账单报告 - {year}年{month}月',
+      // 文稿格式
+      format: 'markdown',
+      // 自动保存
+      autoSave: true,
+      // 通知提醒
+      notification: true,
+      // 保留最近多少个月的文稿
+      retainMonths: 12
+    };
+  }
+
+  // 初始化
+  async init() {
+    await this.storageManager.init();
+    this.loadConfig();
+    this.scheduleNextGeneration();
+  }
+
+  // 加载配置
+  loadConfig() {
+    try {
+      const raw = localStorage.getItem('wb_monthly_report_config');
+      if (raw) {
+        this.config = { ...this.config, ...JSON.parse(raw) };
+      }
+    } catch (error) {
+      console.error('Failed to load config:', error);
+    }
+  }
+
+  // 保存配置
+  saveConfig() {
+    try {
+      localStorage.setItem('wb_monthly_report_config', JSON.stringify(this.config));
+    } catch (error) {
+      console.error('Failed to save config:', error);
+    }
+  }
+
+  // 调度下次生成
+  scheduleNextGeneration() {
+    const now = new Date();
+    const nextGeneration = this.getNextGenerationTime(now);
+    
+    // 计算等待时间
+    const waitTime = nextGeneration.getTime() - now.getTime();
+    
+    if (waitTime > 0) {
+      setTimeout(() => {
+        this.generateMonthlyReport();
+      }, waitTime);
+    }
+  }
+
+  // 获取下次生成时间
+  getNextGenerationTime(now) {
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    // 计算下个月的生成时间
+    let nextMonth = currentMonth + 1;
+    let nextYear = currentYear;
+    
+    if (nextMonth > 11) {
+      nextMonth = 0;
+      nextYear = currentYear + 1;
+    }
+    
+    // 创建下个月生成时间的日期对象
+    const generationDate = new Date(nextYear, nextMonth, this.config.generateDay, 
+                                   parseInt(this.config.generateTime.split(':')[0]), 
+                                   parseInt(this.config.generateTime.split(':')[1]));
+    
+    // 如果生成时间已过，则安排到下下个月
+    if (generationDate <= now) {
+      generationDate.setMonth(generationDate.getMonth() + 1);
+    }
+    
+    return generationDate;
+  }
+
+  // 生成月度报告
+  async generateMonthlyReport() {
+    if (this.isRunning) {
+      console.log('Monthly report generation is already running');
+      return;
+    }
+
+    this.isRunning = true;
+    
+    try {
+      const now = new Date();
+      const reportDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const reportMonth = reportDate.getMonth();
+      const reportYear = reportDate.getFullYear();
+      
+      // 检查是否已经生成过
+      const existingReport = await this.checkExistingReport(reportYear, reportMonth);
+      if (existingReport) {
+        console.log(`Report for ${reportYear}-${reportMonth} already exists`);
+        this.scheduleNextGeneration();
+        return;
+      }
+      
+      console.log(`Generating monthly report for ${reportYear}-${reportMonth}`);
+      
+      // 生成报告
+      const report = await this.createMonthlyReport(reportYear, reportMonth);
+      
+      // 保存报告
+      if (this.config.autoSave) {
+        await this.saveMonthlyReport(report);
+      }
+      
+      // 发送通知
+      if (this.config.notification) {
+        this.sendNotification(report);
+      }
+      
+      this.lastGenerated = new Date();
+      this.scheduleNextGeneration();
+      
+      return report;
+    } catch (error) {
+      console.error('Failed to generate monthly report:', error);
+      this.scheduleNextGeneration();
+      throw error;
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  // 检查是否已存在报告
+  async checkExistingReport(year, month) {
+    const documents = await this.documentManager.getMonthlyReports();
+    const reportTitle = this.config.titleTemplate
+      .replace('{year}', year)
+      .replace('{month}', month + 1);
+    
+    return documents.find(doc => doc.title === reportTitle);
+  }
+
+  // 创建月度报告
+  async createMonthlyReport(year, month) {
+    const reportDate = new Date(year, month, 1);
+    const nextMonth = new Date(year, month + 1, 1);
+    
+    // 获取本月所有流水记录
+    const transactions = await this.getMonthTransactions(reportDate, nextMonth);
+    
+    // 计算统计数据
+    const stats = this.calculateMonthlyStats(transactions);
+    
+    // 生成报告内容
+    const report = {
+      id: `monthly_report_${year}_${month}`,
+      title: this.config.titleTemplate.replace('{year}', year).replace('{month}', month + 1),
+      year: year,
+      month: month,
+      generatedAt: new Date().toISOString(),
+      period: {
+        start: reportDate.toISOString(),
+        end: new Date(year, month + 1, 0).toISOString()
+      },
+      statistics: stats,
+      transactions: transactions,
+      summary: this.generateSummary(stats),
+      suggestions: this.generateSuggestions(stats)
+    };
+    
+    return report;
+  }
+
+  // 获取月度流水记录
+  async getMonthTransactions(startDate, endDate) {
+    const transactions = await this.storageManager.getTransactions();
+    
+    return transactions.filter(transaction => {
+      const transactionDate = new Date(transaction.日期);
+      return transactionDate >= startDate && transactionDate < endDate;
+    }).sort((a, b) => new Date(a.日期) - new Date(b.日期));
+  }
+
+  // 计算月度统计数据
+  calculateMonthlyStats(transactions) {
+    let income = 0;
+    let fixedExpenses = 0;
+    let variableExpenses = 0;
+    
+    const categoryStats = {};
+    
+    transactions.forEach(transaction => {
+      const amount = parseFloat(transaction.金额);
+      
+      // 简单的收入/支出分类
+      if (transaction.备注 && transaction.备注.includes('收入')) {
+        income += amount;
+      } else {
+        // 支出分类
+        if (transaction.分类 === '房租') {
+          fixedExpenses += amount;
+        } else {
+          variableExpenses += amount;
+        }
+        
+        // 分类统计
+        if (!categoryStats[transaction.分类]) {
+          categoryStats[transaction.分类] = 0;
+        }
+        categoryStats[transaction.分类] += amount;
+      }
+    });
+    
+    const balance = income - fixedExpenses - variableExpenses;
+    
+    return {
+      income: income,
+      fixedExpenses: fixedExpenses,
+      variableExpenses: variableExpenses,
+      balance: balance,
+      totalTransactions: transactions.length,
+      categoryStats: categoryStats,
+      averageDailyExpense: transactions.length > 0 ? (fixedExpenses + variableExpenses) / this.getDaysInMonth(new Date().getFullYear(), new Date().getMonth()) : 0
+    };
+  }
+
+  // 获取月份天数
+  getDaysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+  }
+
+  // 生成报告摘要
+  generateSummary(stats) {
+    const totalExpenses = stats.fixedExpenses + stats.variableExpenses;
+    const savingsRate = stats.income > 0 ? ((stats.income - totalExpenses) / stats.income * 100).toFixed(1) : 0;
+    
+    return {
+      totalIncome: stats.income,
+      totalExpenses: totalExpenses,
+      balance: stats.balance,
+      savingsRate: `${savingsRate}%`,
+      transactionCount: stats.totalTransactions,
+      averageDailyExpense: stats.averageDailyExpense.toFixed(2)
+    };
+  }
+
+  // 生成建议
+  generateSuggestions(stats) {
+    const suggestions = [];
+    
+    // 收入分析
+    if (stats.income < 5000) {
+      suggestions.push('考虑增加收入来源，如兼职或提升技能');
+    }
+    
+    // 支出分析
+    const totalExpenses = stats.fixedExpenses + stats.variableExpenses;
+    if (totalExpenses > stats.income * 0.8) {
+      suggestions.push('支出较高，建议控制不必要的开支');
+    }
+    
+    // 储蓄率分析
+    const savingsRate = stats.income > 0 ? (stats.income - totalExpenses) / stats.income : 0;
+    if (savingsRate < 0.1) {
+      suggestions.push('储蓄率较低，建议制定预算计划');
+    }
+    
+    // 分类支出建议
+    if (stats.categoryStats['娱乐'] > stats.income * 0.15) {
+      suggestions.push('娱乐支出占比较高，建议适当控制');
+    }
+    
+    if (stats.categoryStats['购物'] > stats.income * 0.2) {
+      suggestions.push('购物支出占比较高，建议理性消费');
+    }
+    
+    return suggestions;
+  }
+
+  // 保存月度报告
+  async saveMonthlyReport(report) {
+    const documents = await this.documentManager.getMonthlyReports();
+    
+    // 检查是否已存在，存在则更新，不存在则创建
+    const existingIndex = documents.findIndex(doc => doc.id === report.id);
+    
+    if (existingIndex >= 0) {
+      documents[existingIndex] = {
+        id: report.id,
+        title: report.title,
+        content: this.formatReport(report),
+        createdAt: report.generatedAt,
+        updatedAt: report.generatedAt
+      };
+    } else {
+      documents.push({
+        id: report.id,
+        title: report.title,
+        content: this.formatReport(report),
+        createdAt: report.generatedAt,
+        updatedAt: report.generatedAt
+      });
+    }
+    
+    await this.documentManager.saveMonthlyReports(documents);
+    
+    // 清理旧报告
+    await this.cleanupOldReports();
+  }
+
+  // 格式化报告
+  formatReport(report) {
+    const formatted = `# ${report.title}
+
+## 基本信息
+- **报告月份**: ${report.year}年${report.month + 1}月
+- **生成时间**: ${new Date(report.generatedAt).toLocaleString('zh-CN')}
+- **统计周期**: ${new Date(report.period.start).toLocaleDateString('zh-CN')} 至 ${new Date(report.period.end).toLocaleDateString('zh-CN')}
+
+## 收支统计
+- **总收入**: ¥${report.statistics.income.toFixed(2)}
+- **固定支出**: ¥${report.statistics.fixedExpenses.toFixed(2)}
+- **弹性支出**: ¥${report.statistics.variableExpenses.toFixed(2)}
+- **本月结余**: ¥${report.statistics.balance.toFixed(2)}
+- **储蓄率**: ${report.summary.savingsRate}
+- **交易笔数**: ${report.summary.transactionCount}笔
+- **日均支出**: ¥${report.summary.averageDailyExpense}
+
+## 支出明细
+${this.formatTransactions(report.transactions)}
+
+## 分类统计
+${this.formatCategoryStats(report.statistics.categoryStats)}
+
+## 月度分析
+- **日均支出**: ¥${report.summary.averageDailyExpense}
+- **储蓄率**: ${report.summary.savingsRate}
+- **收支状况**: ${report.statistics.balance >= 0 ? '收支平衡' : '收支赤字'}
+
+## 改进建议
+${this.formatSuggestions(report.suggestions)}
+
+---
+*本报告由记账工作台自动生成*
+`;
+    
+    return formatted;
+  }
+
+  // 格式化交易记录
+  formatTransactions(transactions) {
+    if (transactions.length === 0) {
+      return '本月暂无交易记录';
+    }
+    
+    return transactions.map(transaction => {
+      const date = new Date(transaction.日期).toLocaleDateString('zh-CN');
+      return `- **${date}** [${transaction.分类}] ¥${transaction.金额} - ${transaction.备注 || '无备注'}`;
+    }).join('\n');
+  }
+
+  // 格式化分类统计
+  formatCategoryStats(categoryStats) {
+    return Object.entries(categoryStats)
+      .map(([category, amount]) => `- **${category}**: ¥${amount.toFixed(2)}`)
+      .join('\n');
+  }
+
+  // 格式化建议
+  formatSuggestions(suggestions) {
+    return suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n');
+  }
+
+  // 清理旧报告
+  async cleanupOldReports() {
+    const documents = await this.documentManager.getMonthlyReports();
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - this.config.retainMonths);
+    
+    const filteredDocuments = documents.filter(doc => {
+      const docDate = new Date(doc.createdAt);
+      return docDate >= cutoffDate;
+    });
+    
+    await this.documentManager.saveMonthlyReports(filteredDocuments);
+  }
+
+  // 发送通知
+  sendNotification(report) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('月度账单报告已生成', {
+        body: `${report.title} 已生成完成，请查看详情。`,
+        icon: '/favicon.ico'
+      });
+    }
+  }
+
+  // 手动生成报告
+  async generateManualReport(year, month) {
+    const report = await this.createMonthlyReport(year, month);
+    
+    if (this.config.autoSave) {
+      await this.saveMonthlyReport(report);
+    }
+    
+    return report;
+  }
+
+  // 获取生成历史
+  async getGenerationHistory() {
+    const documents = await this.documentManager.getMonthlyReports();
+    return documents.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt
+    })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+}
+
+// 存储管理器
+class StorageManager {
+  async init() {
+    // 初始化存储
+    if (!localStorage.getItem('wb_transactions')) {
+      localStorage.setItem('wb_transactions', JSON.stringify([]));
+    }
+  }
+
+  async getTransactions() {
+    try {
+      const raw = localStorage.getItem('wb_transactions');
+      return raw ? JSON.parse(raw) : [];
+    } catch (error) {
+      console.error('Failed to get transactions:', error);
+      return [];
+    }
+  }
+
+  async saveTransactions(transactions) {
+    try {
+      localStorage.setItem('wb_transactions', JSON.stringify(transactions));
+    } catch (error) {
+      console.error('Failed to save transactions:', error);
+    }
+  }
+}
+
+// 文档管理器
+class DocumentManager {
+  async getMonthlyReports() {
+    try {
+      const raw = localStorage.getItem('wb_monthly_reports');
+      return raw ? JSON.parse(raw) : [];
+    } catch (error) {
+      console.error('Failed to get monthly reports:', error);
+      return [];
+    }
+  }
+
+  async saveMonthlyReports(reports) {
+    try {
+      localStorage.setItem('wb_monthly_reports', JSON.stringify(reports));
+    } catch (error) {
+      console.error('Failed to save monthly reports:', error);
+    }
+  }
+}
+
+// 月度报告配置界面
+class MonthlyReportConfigUI {
+  constructor() {
+    this.generator = null;
+  }
+
+  // 显示配置界面
+  showConfig() {
+    const configModal = document.getElementById('monthly-report-config-modal');
+    if (configModal) {
+      configModal.style.display = 'block';
+    }
+  }
+
+  // 隐藏配置界面
+  hideConfig() {
+    const configModal = document.getElementById('monthly-report-config-modal');
+    if (configModal) {
+      configModal.style.display = 'none';
+    }
+  }
+
+  // 更新配置
+  updateConfig(config) {
+    this.generator.config = { ...this.generator.config, ...config };
+    this.generator.saveConfig();
+    this.showToast('配置已更新', 'success');
+  }
+
+  // 显示生成的报告
+  showGeneratedReport(report) {
+    const modal = document.getElementById('generated-report-modal');
+    const content = document.getElementById('generated-report-content');
+    
+    if (modal && content) {
+      content.innerHTML = `<pre>${report.content}</pre>`;
+      modal.style.display = 'block';
+    }
+  }
+
+  // 显示提示
+  showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.remove();
+    }, 3000);
+  }
+
+  // 更新状态
+  updateStatus() {
+    const statusElement = document.getElementById('monthly-report-status');
+    if (statusElement && this.generator) {
+      const now = new Date();
+      const nextGeneration = this.generator.getNextGenerationTime(now);
+      const timeUntilNext = nextGeneration.getTime() - now.getTime();
+      
+      statusElement.textContent = `下次生成: ${new Date(nextGeneration).toLocaleString('zh-CN')} (${Math.floor(timeUntilNext / 1000 / 60 / 60 / 24)}天)`;
+    }
+  }
+}
+
+// 初始化和启动
+async function initMonthlyReportSystem() {
+  try {
+    // 创建生成器实例
+    const generator = new AutoMonthlyReportGenerator();
+    
+    // 初始化
+    await generator.init();
+    
+    // 创建配置界面
+   const configUI = new MonthlyReportConfigUI();
+   configUI.generator = generator;
+   
+   // 绑定手动生成按钮
+   document.getElementById('generate-manual-report')?.addEventListener('click', () => {
+     const modal = document.getElementById('manual-report-modal');
+     if (modal) modal.style.display = 'block';
+   });
+   
+   // 绑定确认生成按钮
+   document.getElementById('confirm-generate')?.addEventListener('click', async () => {
+     const year = parseInt(document.getElementById('manual-report-year')?.value);
+     const month = parseInt(document.getElementById('manual-report-month')?.value) - 1;
+     
+     if (year && month !== undefined) {
+       try {
+         const report = await generator.generateManualReport(year, month);
+         const modalElement = document.getElementById('manual-report-modal');
+         if (modalElement) modalElement.style.display = 'none';
+         configUI.showGeneratedReport(report);
+        } catch (error) {
+          configUI.showToast('生成失败：' + error.message, 'error');
+        }
+      }
+    });
+    
+    // 绑定查看历史按钮
+    document.getElementById('view-report-history')?.addEventListener('click', async () => {
+      const history = await generator.getGenerationHistory();
+      const historyList = document.getElementById('history-list');
+      
+      if (historyList) {
+        if (history.length === 0) {
+          historyList.innerHTML = '<p>暂无历史报告</p>';
+        } else {
+          historyList.innerHTML = history.map(doc => `
+            <div class="history-item">
+              <div class="history-header">
+                <h4>${doc.title}</h4>
+                <span class="history-date">${new Date(doc.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div class="history-actions">
+                <button class="btn btn-secondary" onclick="viewHistoryReport('${doc.id}')">查看</button>
+                <button class="btn btn-secondary" onclick="downloadHistoryReport('${doc.id}')">下载</button>
+              </div>
+            </div>
+          `).join('');
+       }
+       
+       const historyModal = document.getElementById('history-modal');
+       if (historyModal) historyModal.style.display = 'block';
+     }
+   });
+    
+    // 绑定配置按钮
+    document.getElementById('configure-monthly-report')?.addEventListener('click', () => {
+      configUI.showConfig();
+    });
+    
+    // 绑定配置保存按钮
+    document.getElementById('save-config')?.addEventListener('click', () => {
+      const config = {
+        generateTime: document.getElementById('generate-time')?.value || '09:00',
+        generateDay: parseInt(document.getElementById('generate-day')?.value) || 1,
+        autoSave: document.getElementById('auto-save')?.checked !== false,
+        notification: document.getElementById('notification')?.checked !== false,
+        retainMonths: parseInt(document.getElementById('retain-months')?.value) || 12
+      };
+      
+      configUI.updateConfig(config);
+      configUI.hideConfig();
+    });
+    
+    // 绑定关闭按钮
+    document.querySelectorAll('.close, .cancel').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const modal = e.target.closest('.modal');
+        if (modal) {
+          modal.style.display = 'none';
+        }
+      });
+    });
+    
+    // 更新状态
+    setInterval(() => {
+      configUI.updateStatus();
+    }, 60000); // 每分钟更新一次状态
+    
+    console.log('Monthly report system initialized successfully');
+    
+    return generator;
+  } catch (error) {
+    console.error('Failed to initialize monthly report system:', error);
+    throw error;
+  }
+}
+
+// 启动系统
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const generator = await initMonthlyReportSystem();
+    
+    // 页面加载完成后的其他初始化
+    console.log('Monthly report system is ready');
+  } catch (error) {
+    console.error('Failed to start monthly report system:', error);
+  }
+});
+
+// 全局函数
+window.viewHistoryReport = async (reportId) => {
+  const generator = window.monthlyReportGenerator;
+  if (generator) {
+    const reports = await generator.documentManager.getMonthlyReports();
+    const report = reports.find(r => r.id === reportId);
+    if (report) {
+      const configUI = new MonthlyReportConfigUI();
+      configUI.generator = generator;
+      configUI.showGeneratedReport(report);
+    }
+  }
+};
+
+window.downloadHistoryReport = async (reportId) => {
+  const generator = window.monthlyReportGenerator;
+  if (generator) {
+    const reports = await generator.documentManager.getMonthlyReports();
+    const report = reports.find(r => r.id === reportId);
+    if (report) {
+      const blob = new Blob([report.content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${report.title}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
+};
+
+// 导出
+window.AutoMonthlyReportGenerator = AutoMonthlyReportGenerator;
+window.StorageManager = StorageManager;
+window.DocumentManager = DocumentManager;
+window.MonthlyReportConfigUI = MonthlyReportConfigUI;
+window.initMonthlyReportSystem = initMonthlyReportSystem;

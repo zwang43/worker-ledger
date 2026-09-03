@@ -1,0 +1,47 @@
+{
+  "name": "ledger-app",
+  "productName": "打工人小账本",
+  "version": "1.0.0",
+  "description": "打工人小账本 · 纯本地记账工作台（Electron 壳 + 本机 oMLX 微调模型）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --dir",
+    "dist:zip": "electron-builder --dir && electron-builder --mac zip"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "cn.ledger.workerapp",
+    "productName": "打工人小账本",
+    "mac": {
+      "identity": null,
+      "target": [
+        "dir",
+        "zip"
+      ]
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "default_model_registry.json",
+      "resources/**"
+    ],
+    "extraResources": [
+      {
+        "from": "bridge",
+        "to": "bridge"
+      },
+      {
+        "from": "bridge-bin",
+        "to": "bridge-bin"
+      }
+    ]
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
+  }
+}

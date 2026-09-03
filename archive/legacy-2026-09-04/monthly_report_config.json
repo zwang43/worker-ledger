@@ -1,0 +1,12 @@
+{
+  "generateTime": "09:00",
+  "generateDay": 1,
+  "titleTemplate": "月度账单报告 - {year}年{month}月",
+  "format": "markdown",
+  "autoSave": true,
+  "notification": true,
+  "retainMonths": 12,
+  "enabled": true,
+  "lastGenerated": null,
+  "nextGeneration": null
+}

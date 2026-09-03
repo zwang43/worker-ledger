@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Ledger AI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 1.2em;
+        }
+        
+        .status {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .status h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e74c3c;
+        }
+        
+        .status-indicator.active {
+            background: #27ae60;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        button.secondary {
+            background: #95a5a6;
+        }
+        
+        button.secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">💰</div>
+        <h1>Worker Ledger AI</h1>
+        <p class="subtitle">本地化AI记账工作台</p>
+        
+        <div class="status">
+            <h3>服务状态</h3>
+            <div class="status-item">
+                <span>oMLX AI服务</span>
+                <div class="status-indicator" id="omlx-status"></div>
+            </div>
+            <div class="status-item">
+                <span>桥接服务</span>
+                <div class="status-indicator" id="bridge-status"></div>
+            </div>
+            <div class="status-item">
+                <span>记账应用</span>
+                <div class="status-indicator active" id="app-status"></div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在启动服务...</p>
+        </div>
+        
+        <div class="buttons">
+            <button onclick="startServices()">启动AI服务</button>
+            <button class="secondary" onclick="stopServices()">停止AI服务</button>
+            <button class="secondary" onclick="checkServices()">检查状态</button>
+        </div>
+        
+        <div style="margin-top: 30px; padding: 20px; background: #e8f4f8; border-radius: 10px;">
+            <h3>🚀 快速开始</h3>
+            <p>1. 点击"启动AI服务"按钮</p>
+            <p>2. 等待服务启动完成</p>
+            <p>3. 打开记账应用开始使用</p>
+        </div>
+    </div>
+
+    <script>
+        // 检查服务状态
+        async function checkServices() {
+            try {
+                const status = await window.electronAPI.checkServicesStatus();
+                
+                const omlxStatus = document.getElementById('omlx-status');
+                const bridgeStatus = document.getElementById('bridge-status');
+                
+                omlxStatus.className = 'status-indicator' + (status.omlx ? ' active' : '');
+                bridgeStatus.className = 'status-indicator' + (status.bridge ? ' active' : '');
+                
+                // 显示状态消息
+                const message = status.omlx && status.bridge 
+                    ? '所有服务运行正常' 
+                    : '部分服务未启动，请检查';
+                
+                alert(message);
+            } catch (error) {
+                console.error('检查服务状态失败:', error);
+                alert('无法连接到服务');
+            }
+        }
+        
+        // 启动服务
+        async function startServices() {
+            const loading = document.getElementById('loading');
+            loading.classList.add('active');
+            
+            try {
+                await window.electronAPI.startServices();
+                await checkServices();
+            } catch (error) {
+                console.error('启动服务失败:', error);
+                alert('启动服务失败，请检查安装');
+            } finally {
+                loading.classList.remove('active');
+            }
+        }
+        
+        // 停止服务
+        async function stopServices() {
+            try {
+                await window.electronAPI.stopServices();
+                await checkServices();
+            } catch (error) {
+                console.error('停止服务失败:', error);
+                alert('停止服务失败');
+            }
+        }
+        
+        // 页面加载时检查服务状态
+        window.addEventListener('DOMContentLoaded', () => {
+            checkServices();
+        });
+        
+        // 添加键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        startServices();
+                        break;
+                    case 'q':
+                        e.preventDefault();
+                        window.electronAPI.quitApp();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # Worker Ledger AI 应用
+  worker-ledger-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - DISPLAY=:99
+    volumes:
+      - ../:/app/src
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    restart: unless-stopped
+    
+  # 开发环境
+  worker-ledger-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../:/app/src
+      - /app/node_modules
+    restart: unless-stopped
+    profiles:
+      - dev
+
+  # oMLX 服务 (可选)
+  omlx:
+    image: python:3.9-slim
+    working_dir: /app
+    command: python -m http.server 8081
+    volumes:
+      - omlx-models:/app/models
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    profiles:
+      - omlx
+
+volumes:
+  omlx-models:

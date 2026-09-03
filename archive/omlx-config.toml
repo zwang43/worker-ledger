@@ -1,0 +1,66 @@
+# oMLX配置文件
+# 用于配置本地AI服务与记账应用的集成
+
+[server]
+host = "127.0.0.1"
+port = 8080
+model = "qwen2.5-coder-7b-instruct-q4"
+max_tokens = 1000
+temperature = 0.1
+
+[bridge]
+host = "127.0.0.1"
+port = 8899
+omlx_url = "http://127.0.0.1:8080"
+timeout = 30
+
+[prompt]
+system = """你是一个专业的记账助手，专门帮助用户识别和记录支出信息。
+请从用户的自然语言描述中提取以下信息：
+1. 金额（数字）
+2. 分类（如：吃饭、交通、购物、娱乐、医疗、教育等）
+3. 日期（如果没有明确说明，使用今天）
+4. 描述（详细说明）
+
+请以JSON格式返回，包含以下字段：
+- action: "add"（添加支出）
+- amount: 数字（金额）
+- category: 字符串（分类）
+- date: 字符串（日期，格式：YYYY-MM-DD）
+- description: 字符串（描述）
+
+示例：
+输入："今天午餐花了35元，包括一杯咖啡和一份便当"
+输出：
+{
+  "action": "add",
+  "amount": 35,
+  "category": "吃饭",
+  "date": "2026-08-31",
+  "description": "午餐，包括一杯咖啡和一份便当"
+}"""
+
+[logging]
+level = "INFO"
+file = "omlx-bridge.log"
+
+[models]
+# 可用模型列表
+available = [
+  "qwen2.5-coder-7b-instruct-q4",
+  "codellama-7b-instruct-q4",
+  "mistral-7b-instruct-v0.2-q4"
+]
+
+[categories]
+# 支出分类映射
+default = [
+  "吃饭",
+  "交通",
+  "购物",
+  "娱乐",
+  "医疗",
+  "教育",
+  "住房",
+  "其他"
+]

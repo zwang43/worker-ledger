@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>月度账单功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background-color: #16856f;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #116b5b;
+        }
+        .btn-secondary {
+            background-color: #e0e0e0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background-color: #d0d0d0;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #218838;
+        }
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .btn-info:hover {
+            background-color: #138496;
+        }
+        .status {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .report-content {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            z-index: 1001;
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast-success {
+            background-color: #28a745;
+        }
+        .toast-error {
+            background-color: #dc3545;
+        }
+        .toast-info {
+            background-color: #17a2b8;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 月度账单功能测试</h1>
+        
+        <div class="status">
+            <h3>📋 测试说明</h3>
+            <p>这个页面用于测试月度账单功能的各个组件。您可以在这里测试按钮点击、模态框显示、报告生成等功能。</p>
+            <p>请确保在浏览器中打开 <code>worker_ledger.html</code> 文件来使用完整功能。</p>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="testGenerateModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                </svg>
+                测试生成模态框
+            </button>
+            <button class="btn btn-secondary" onclick="testConfigModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+                测试配置模态框
+            </button>
+            <button class="btn btn-success" onclick="testHistoryModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+                </svg>
+                测试历史模态框
+            </button>
+            <button class="btn btn-info" onclick="testReportDisplay()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                </svg>
+                测试报告显示
+            </button>
+        </div>
+
+        <div class="status">
+            <h3>🔧 功能检查</h3>
+            <div id="function-status">
+                <p>✅ 按钮点击测试</p>
+                <p>✅ 模态框显示测试</p>
+                <p>✅ 报告生成测试</p>
+                <p>✅ 配置功能测试</p>
+                <p>✅ 历史记录测试</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手动生成报告模态框 -->
+    <div id="test-manual-report-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>手动生成月度账单</h3>
+                <span class="close" onclick="closeModal('test-manual-report-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="test-report-year">年份:</label>
+                    <input type="number" id="test-report-year" min="2020" max="2030" value="2024">
+                </div>
+                <div class="form-group">
+                    <label for="test-report-month">月份:</label>
+                    <select id="test-report-month">
+                        <option value="1">1月</option>
+                        <option value="2">2月</option>
+                        <option value="3">3月</option>
+                        <option value="4">4月</option>
+                        <option value="5">5月</option>
+                        <option value="6">6月</option>
+                        <option value="7">7月</option>
+                        <option value="8">8月</option>
+                        <option value="9">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12">12月</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="generateTestReport()">生成报告</button>
+                    <button class="btn btn-secondary" onclick="closeModal('test-manual-report-modal')">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 配置模态框 -->
+    <div id="test-config-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>月度账单配置</h3>
+                <span class="close" onclick="closeModal('test-config-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="test-generate-time">生成时间:</label>
+                    <input type="time" id="test-generate-time" value="09:00">
+                </div>
+                <div class="form-group">
+                    <label for="test-generate-day">生成日期:</label>
+                    <input type="number" id="test-generate-day" min="1" max="31" value="1">
+                </div>
+                <div class="form-group">
+                    <label for="test-auto-save">自动保存:</label>
+                    <input type="checkbox" id="test-auto-save" checked>
+                </div>
+                <div class="form-group">
+                    <label for="test-notification">通知提醒:</label>
+                    <input type="checkbox" id="test-notification" checked>
+                </div>
+                <div class="form-group">
+                    <label for="test-retain-months">保留月数:</label>
+                    <input type="number" id="test-retain-months" min="1" max="24" value="12">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="saveTestConfig()">保存配置</button>
+                    <button class="btn btn-secondary" onclick="closeModal('test-config-modal')">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史报告模态框 -->
+    <div id="test-history-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>历史报告</h3>
+                <span class="close" onclick="closeModal('test-history-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="test-history-list">
+                    <div class="history-item">
+                        <div class="history-header">
+                            <h4>月度账单报告 - 2024年8月</h4>
+                            <span class="history-date">2024-08-01</span>
+                        </div>
+                        <div class="history-actions">
+                            <button class="btn btn-secondary" onclick="viewTestReport('2024-08')">查看</button>
+                            <button class="btn btn-secondary" onclick="downloadTestReport('2024-08')">下载</button>
+                        </div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-header">
+                            <h4>月度账单报告 - 2024年7月</h4>
+                            <span class="history-date">2024-07-01</span>
+                        </div>
+                        <div class="history-actions">
+                            <button class="btn btn-secondary" onclick="viewTestReport('2024-07')">查看</button>
+                            <button class="btn btn-secondary" onclick="downloadTestReport('2024-07')">下载</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" onclick="closeModal('test-history-modal')">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 报告显示模态框 -->
+    <div id="test-report-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>月度账单报告</h3>
+                <span class="close" onclick="closeModal('test-report-modal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="test-report-content" class="report-content"></div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="downloadTestReport()">下载报告</button>
+                    <button class="btn btn-secondary" onclick="shareTestReport()">分享报告</button>
+                    <button class="btn btn-secondary" onclick="closeModal('test-report-modal')">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示提示消息
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // 关闭模态框
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // 测试生成模态框
+        function testGenerateModal() {
+            document.getElementById('test-manual-report-modal').style.display = 'block';
+            showToast('生成模态框已显示', 'info');
+        }
+
+        // 测试配置模态框
+        function testConfigModal() {
+            document.getElementById('test-config-modal').style.display = 'block';
+            showToast('配置模态框已显示', 'info');
+        }
+
+        // 测试历史模态框
+        function testHistoryModal() {
+            document.getElementById('test-history-modal').style.display = 'block';
+            showToast('历史模态框已显示', 'info');
+        }
+
+        // 测试报告显示
+        function testReportDisplay() {
+            const testReport = `# 月度账单报告 - 2024年8月
+
+## 基本信息
+- **报告月份**: 2024年8月
+- **生成时间**: 2024年8月1日 09:00:00
+- **统计周期**: 2024年8月1日 至 2024年8月31日
+
+## 收支统计
+- **总收入**: ¥15,000.00
+- **固定支出**: ¥3,000.00
+- **弹性支出**: ¥6,500.00
+- **本月结余**: ¥5,500.00
+- **储蓄率**: 36.7%
+- **交易笔数**: 45笔
+- **日均支出**: ¥217.74
+
+## 支出明细
+- **2024年8月1日** [吃饭] ¥25.00 - 午餐
+- **2024年8月1日** [交通] ¥10.00 - 地铁
+- **2024年8月2日** [购物] ¥150.00 - 生活用品
+- **2024年8月5日** [房租] ¥3,000.00 - 8月房租
+- **2024年8月10日** [娱乐] ¥200.00 - 电影
+
+## 分类统计
+- **吃饭**: ¥2,500.00
+- **交通**: ¥500.00
+- **购物**: ¥2,000.00
+- **娱乐**: ¥800.00
+- **房租**: ¥3,000.00
+- **其他**: ¥700.00
+
+## 月度分析
+- **日均支出**: ¥217.74
+- **储蓄率**: 36.7%
+- **收支状况**: 收支平衡
+
+## 改进建议
+1. 储蓄率良好，继续保持
+2. 娱乐支出占比较高，建议适当控制
+3. 可以考虑增加收入来源，提升储蓄水平
+
+---
+*本报告由记账工作台自动生成*`;
+
+            document.getElementById('test-report-content').textContent = testReport;
+            document.getElementById('test-report-modal').style.display = 'block';
+            showToast('报告已显示', 'success');
+        }
+
+        // 生成测试报告
+        function generateTestReport() {
+            const year = document.getElementById('test-report-year').value;
+            const month = document.getElementById('test-report-month').value;
+            
+            showToast(`正在生成${year}年${month}月的报告...`, 'info');
+            
+            setTimeout(() => {
+                closeModal('test-manual-report-modal');
+                testReportDisplay();
+                showToast('报告生成成功！', 'success');
+            }, 1000);
+        }
+
+        // 保存测试配置
+        function saveTestConfig() {
+            const config = {
+                generateTime: document.getElementById('test-generate-time').value,
+                generateDay: document.getElementById('test-generate-day').value,
+                autoSave: document.getElementById('test-auto-save').checked,
+                notification: document.getElementById('test-notification').checked,
+                retainMonths: document.getElementById('test-retain-months').value
+            };
+            
+            localStorage.setItem('test_monthly_report_config', JSON.stringify(config));
+            closeModal('test-config-modal');
+            showToast('配置已保存', 'success');
+        }
+
+        // 查看测试报告
+        function viewTestReport(reportId) {
+            closeModal('test-history-modal');
+            testReportDisplay();
+            showToast(`正在查看${reportId}的报告...`, 'info');
+        }
+
+        // 下载测试报告
+        function downloadTestReport(reportId) {
+            const reportText = `# 月度账单报告 - ${reportId}
+
+## 基本信息
+- **报告月份**: ${reportId}
+- **生成时间**: ${new Date().toLocaleString('zh-CN')}
+- **统计周期**: ${reportId} 全月
+
+## 收支统计
+- **总收入**: ¥15,000.00
+- **固定支出**: ¥3,000.00
+- **弹性支出**: ¥6,500.00
+- **本月结余**: ¥5,500.00
+- **储蓄率**: 36.7%
+- **交易笔数**: 45笔
+- **日均支出**: ¥217.74
+
+## 支出明细
+- **${reportId}-01** [吃饭] ¥25.00 - 午餐
+- **${reportId}-01** [交通] ¥10.00 - 地铁
+- **${reportId}-02** [购物] ¥150.00 - 生活用品
+- **${reportId}-05** [房租] ¥3,000.00 - 房租
+- **${reportId}-10** [娱乐] ¥200.00 - 电影
+
+## 分类统计
+- **吃饭**: ¥2,500.00
+- **交通**: ¥500.00
+- **购物**: ¥2,000.00
+- **娱乐**: ¥800.00
+- **房租**: ¥3,000.00
+- **其他**: ¥700.00
+
+## 月度分析
+- **日均支出**: ¥217.74
+- **储蓄率**: 36.7%
+- **收支状况**: 收支平衡
+
+## 改进建议
+1. 储蓄率良好，继续保持
+2. 娱乐支出占比较高，建议适当控制
+3. 可以考虑增加收入来源，提升储蓄水平
+
+---
+*本报告由记账工作台自动生成*`;
+
+            const blob = new Blob([reportText], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `月度账单报告_${reportId}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('报告已下载', 'success');
+        }
+
+        // 分享测试报告
+        function shareTestReport() {
+            if (navigator.share) {
+                navigator.share({
+                    title: '月度账单报告',
+                    text: '查看我的月度账单报告',
+                    url: window.location.href
+                }).catch(error => {
+                    console.log('分享失败:', error);
+                });
+            } else {
+                // 复制到剪贴板
+                const reportText = document.getElementById('test-report-content').textContent;
+                navigator.clipboard.writeText(reportText).then(() => {
+                    showToast('报告已复制到剪贴板', 'success');
+                }).catch(error => {
+                    showToast('分享失败，请手动复制', 'error');
+                });
+            }
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            showToast('测试页面已加载完成', 'success');
+        });
+    </script>
+</body>
+</html>

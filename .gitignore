@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 日志
+*.log
+
+# oMLX 本地数据
+.omlx/
+
+# Node（archive/mac-app 备用）
+node_modules/
+npm-debug.log*
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# Xcode / Swift 构建产物
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+dist/
+
+# 运行时数据与本地进程残留
+*.pid
+.zcode/
+账本数据/
